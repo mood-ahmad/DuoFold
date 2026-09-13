@@ -1,0 +1,17 @@
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+reference/*.java
+reference/*.log
+reference/
+dist/
+docs/
+release-assets/
+artifacts/
+*.MOV
+
+.kotlin/
+app/.cxx/
+*.keystore
