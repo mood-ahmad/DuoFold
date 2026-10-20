@@ -22,6 +22,8 @@ public final class TiltSensor implements SensorEventListener {
     private static final float STABILITY_TOLERANCE =
             (float) Math.toRadians(1.5);
 
+    private static final float DEAD_ZONE_DEGREES = 10.0f;
+
     private final SensorManager manager;
     private final WindowManager windows;
     private final Listener listener;
@@ -450,17 +452,16 @@ public final class TiltSensor implements SensorEventListener {
             magnitude = limit;
         }
 
-        final float deadZone = 5.0f;
         float effectiveMagnitude;
 
-        if (magnitude <= deadZone) {
+        if (magnitude <= DEAD_ZONE_DEGREES) {
             forwardDegrees = 0;
             sideDegrees = 0;
             effectiveMagnitude = 0;
         } else {
             effectiveMagnitude =
-                    (magnitude - deadZone) * limit
-                    / (limit - deadZone);
+                    (magnitude - DEAD_ZONE_DEGREES) * limit
+                    / (limit - DEAD_ZONE_DEGREES);
 
             float scale = effectiveMagnitude / magnitude;
 
