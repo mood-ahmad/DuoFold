@@ -9,12 +9,18 @@ import android.hardware.SensorManager;
 import android.view.Surface;
 import android.view.WindowManager;
 
-/** Relative pose model. Android matrices map device coordinates to world coordinates. */
+/** Relative pose model with automatic stable-pose recalibration. */
 public final class TiltSensor implements SensorEventListener {
 
     public interface Listener {
         void onTilt(float progress, float forwardDegrees, float sideDegrees);
     }
+
+    private static final long RECALIBRATION_DELAY_NS =
+            10_000_000_000L;
+
+    private static final float STABILITY_TOLERANCE =
+            (float) Math.toRadians(1.5);
 
     private final SensorManager manager;
     private final WindowManager windows;
@@ -51,6 +57,11 @@ public final class TiltSensor implements SensorEventListener {
     private long accelerationTime;
 
     private int lastRotation = -1;
+
+    private long stableSince;
+    private float stableAnchorForward;
+    private float stableAnchorSide;
+    private boolean stabilityTracking;
 
     public TiltSensor(
             Context context,
@@ -125,6 +136,7 @@ public final class TiltSensor implements SensorEventListener {
     public void calibrate() {
         calibrated = false;
         accelerationReady = false;
+        stabilityTracking = false;
 
         filteredForward = 0;
         filteredSide = 0;
@@ -133,6 +145,7 @@ public final class TiltSensor implements SensorEventListener {
 
     public void stop() {
         manager.unregisterListener(this);
+        stabilityTracking = false;
     }
 
     @Override
@@ -203,6 +216,7 @@ public final class TiltSensor implements SensorEventListener {
             filteredSide = 0;
             previous = event.timestamp;
             lastRotation = orientation;
+            stabilityTracking = false;
 
             listener.onTilt(1, 0, 0);
             return;
@@ -241,11 +255,26 @@ public final class TiltSensor implements SensorEventListener {
                 )
                 : new float[]{0, 0};
 
+        if (shouldAutoCalibrate(
+                event.timestamp,
+                measured[0],
+                measured[1]
+        )) {
+            System.arraycopy(screen, 0, reference, 0, 9);
+
+            filteredForward = 0;
+            filteredSide = 0;
+            previous = event.timestamp;
+
+            listener.onTilt(1, 0, 0);
+            return;
+        }
+
         emit(
                 event.timestamp,
                 measured,
                 prediction,
-                .006922f
+                .035f
         );
     }
 
@@ -300,6 +329,7 @@ public final class TiltSensor implements SensorEventListener {
             filteredSide = 0;
             previous = event.timestamp;
             lastRotation = orientation;
+            stabilityTracking = false;
 
             listener.onTilt(1, 0, 0);
             return;
@@ -313,12 +343,60 @@ public final class TiltSensor implements SensorEventListener {
                 angles[1] - referenceAccelerationSide
         );
 
+        float[] measured = MotionAxes.resolve(
+                side,
+                forward,
+                includeForward
+        );
+
+        if (shouldAutoCalibrate(
+                event.timestamp,
+                measured[0],
+                measured[1]
+        )) {
+            referenceAccelerationForward = angles[0];
+            referenceAccelerationSide = angles[1];
+
+            filteredForward = 0;
+            filteredSide = 0;
+            previous = event.timestamp;
+
+            listener.onTilt(1, 0, 0);
+            return;
+        }
+
         emit(
                 event.timestamp,
-                MotionAxes.resolve(side, forward, includeForward),
+                measured,
                 new float[]{0, 0},
-                .06f
+                .08f
         );
+    }
+
+    private boolean shouldAutoCalibrate(
+            long timestamp,
+            float forward,
+            float side
+    ) {
+        if (!stabilityTracking
+                || Math.abs(wrap(forward - stableAnchorForward))
+                        > STABILITY_TOLERANCE
+                || Math.abs(wrap(side - stableAnchorSide))
+                        > STABILITY_TOLERANCE) {
+
+            stableAnchorForward = forward;
+            stableAnchorSide = side;
+            stableSince = timestamp;
+            stabilityTracking = true;
+            return false;
+        }
+
+        if (timestamp - stableSince >= RECALIBRATION_DELAY_NS) {
+            stabilityTracking = false;
+            return true;
+        }
+
+        return false;
     }
 
     private void emit(
@@ -372,9 +450,7 @@ public final class TiltSensor implements SensorEventListener {
             magnitude = limit;
         }
 
-        // Ignore small movements caused by sensor noise or tiny phone tilts.
         final float deadZone = 5.0f;
-
         float effectiveMagnitude;
 
         if (magnitude <= deadZone) {
@@ -382,7 +458,6 @@ public final class TiltSensor implements SensorEventListener {
             sideDegrees = 0;
             effectiveMagnitude = 0;
         } else {
-            // Remap the remaining range so the configured maximum still works.
             effectiveMagnitude =
                     (magnitude - deadZone) * limit
                     / (limit - deadZone);
