@@ -1,3 +1,4 @@
+
 name: Android CI
 
 'on':
@@ -25,11 +26,20 @@ jobs:
         with:
           packages: ''
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Prepare Gradle wrapper
+        shell: bash
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          bash -n gradlew
 
       - name: Build and test DuoFold
-        run: ./gradlew --no-daemon :app:assembleStandardDebug :app:assembleCompatDebug :motion:test
+        shell: bash
+        run: |
+          bash ./gradlew --no-daemon \
+            :app:assembleStandardDebug \
+            :app:assembleCompatDebug \
+            :motion:test
 
       - name: Upload debug APKs
         if: success()
@@ -41,4 +51,3 @@ jobs:
             app/build/outputs/apk/compat/debug/*.apk
           if-no-files-found: error
           retention-days: 7
-
