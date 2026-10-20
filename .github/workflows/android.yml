@@ -1,7 +1,7 @@
 name: Android CI
 
-on: push: pull_request: workflow_dispatch:
+'on': push: pull_request: workflow_dispatch:
 
 jobs: build: runs-on: ubuntu-latest
 
-steps: - name: Checkout repository uses: actions/checkout@v4 - name: Set up JDK 17 uses: actions/setup-java@v4 with: java-version: '17' distribution: temurin cache: gradle - name: Set up Android SDK uses: android-actions/setup-android@v3 - name: Accept Android SDK licenses shell: bash run: | yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true - name: Grant execute permission for gradlew run: chmod +x gradlew - name: Build and test DuoFold run: ./gradlew --no-daemon :app:assembleStandardDebug :app:assembleCompatDebug :motion:test - name: Upload debug APKs if: success() uses: actions/upload-artifact@v4 with: name: DuoFold-debug-APKs path: | app/build/outputs/apk/standard/debug/*.apk app/build/outputs/apk/compat/debug/*.apk if-no-files-found: error retention-days: 7 
+steps: - name: Checkout repository uses: actions/checkout@v4 - name: Set up JDK 17 uses: actions/setup-java@v4 with: java-version: '17' distribution: temurin cache: gradle - name: Set up Android SDK uses: android-actions/setup-android@v3 - name: Accept Android SDK licenses shell: bash run: | yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses - name: Grant execute permission for gradlew run: chmod +x gradlew - name: Build and test DuoFold run: ./gradlew --no-daemon :app:assembleStandardDebug :app:assembleCompatDebug :motion:test - name: Upload debug APKs if: success() uses: actions/upload-artifact@v4 with: name: DuoFold-debug-APKs path: | app/build/outputs/apk/standard/debug/*.apk app/build/outputs/apk/compat/debug/*.apk if-no-files-found: error retention-days: 7 
