@@ -6,6 +6,9 @@ name: Android CI
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -41,13 +44,24 @@ jobs:
             :app:assembleCompatDebug \
             :motion:test
 
-      - name: Upload debug APKs
+      - name: Locate generated APKs
+        if: success()
+        shell: bash
+        run: |
+          echo "Searching for APK files..."
+          find . -type f -name "*.apk" -print | tee /tmp/apk-files.txt
+
+          if [ ! -s /tmp/apk-files.txt ]; then
+            echo "::error::No APK files were generated."
+            exit 1
+          fi
+
+      - name: Upload APK files
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: DuoFold-debug-APKs
+          name: DuoFold-APKs
           path: |
-            app/build/outputs/apk/standard/debug/*.apk
-            app/build/outputs/apk/compat/debug/*.apk
+            **/*.apk
           if-no-files-found: error
           retention-days: 7
