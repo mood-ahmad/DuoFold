@@ -115,7 +115,7 @@ public final class CaptureBridge extends IFoldBridge.Stub {
                 listener=callback;
                 exclude=(SurfaceControl)options.getParcelable("exclude");
                 width=options.getInt("width");height=options.getInt("height");
-                interval=1000/Math.max(30,Math.min(180,options.getInt("fps",60)));
+                interval=1000/Math.max(30,Math.min(180,options.getInt("fps",120)));
                 if(exclude==null||!exclude.isValid())
                     throw new IllegalStateException("Effect layer unavailable; refusing recursive capture.");
                 markExcluded(exclude);
